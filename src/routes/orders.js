@@ -3,23 +3,30 @@ const router = express.Router();
 const { queryDb } = require('../db');
 
 router.get('/', async (req, res) => {
-  console.log("starting");
+  req.log.info('orders.fetch.start');
+
   try {
     const result = await queryDb('SELECT * FROM orders', []);
-    console.log("ok");
+    req.log.info('orders.fetch.success', { rowCount: result.rowCount });
     res.json(result.rows);
   } catch (err) {
-    console.log("oops");
+    req.log.error('orders.fetch.failed', {
+      error: { name: err.name, message: err.message },
+    });
     res.status(500).send('Error fetching orders');
   }
 });
 
 router.post('/', async (req, res) => {
-  console.log("starting");
+  req.log.info('orders.create.start');
   const { product_id, quantity, customer_id } = req.body;
-  
+
   if (!product_id || !quantity || !customer_id) {
-    console.log("try again");
+    req.log.warn('orders.create.invalid', {
+      missingFields: ['product_id', 'quantity', 'customer_id'].filter(
+        (field) => !req.body || !req.body[field]
+      ),
+    });
     return res.status(400).send('Missing fields');
   }
 
@@ -28,10 +35,12 @@ router.post('/', async (req, res) => {
       'INSERT INTO orders (product_id, quantity, customer_id) VALUES ($1, $2, $3) RETURNING *',
       [product_id, quantity, customer_id]
     );
-    console.log("done");
+    req.log.info('orders.create.success', { orderId: result.rows[0]?.id || null });
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.log("error happened");
+    req.log.error('orders.create.failed', {
+      error: { name: err.name, message: err.message },
+    });
     res.status(500).send('Error creating order');
   }
 });
